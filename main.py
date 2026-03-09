@@ -144,7 +144,7 @@ class App:
         winner = np.argmax(outputs)
         
         self.reset_btn_colors()
-        self.btns[winner].configure(bg="#28a745", fg="white") # Zielony sukces
+        self.btns[winner].configure(bg="#28a745", fg="white")
 
     def reset_btn_colors(self):
         for btn in self.btns:
