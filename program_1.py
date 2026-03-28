@@ -14,7 +14,7 @@ class DeepNeuralNetwork:
         self.input_size = 256
         self.hidden_size = 128
         self.output_size = 3
-        self.lr = 0.005
+        self.lr = 0.001
         self.weights_file = "model_weights.pkl"
         self.history = []
         self.reset_weights()
@@ -79,7 +79,7 @@ class App:
     def __init__(self, root):
         self.root = root
         self.root.title("PRO")
-        self.root.geometry("1000x750")
+        self.root.geometry("1100x850")
         self.root.minsize(950, 650)
         self.root.configure(bg="#000000")
 
@@ -90,15 +90,21 @@ class App:
         self.manual_counts = [0, 0, 0]
         self.dataset_file = "dataset.pkl"
 
+        self.test_dataset = []
+        self.test_dataset_file = "test_dataset.pkl"
+        self.load_test_dataset()
+
         self.load_dataset()
         self.setup_ui()
         self.canvas.bind("<Configure>", lambda e: self.redraw_grid())
 
     def setup_ui(self):
+        # Konfiguracja głównej siatki
         self.root.columnconfigure(0, weight=3)
         self.root.columnconfigure(1, weight=1)
         self.root.rowconfigure(0, weight=1)
 
+        # Obszar rysowania (Canvas)
         self.canvas = tk.Canvas(
             self.root, bg="#0a0a0a", highlightthickness=1, highlightbackground="#222"
         )
@@ -106,43 +112,66 @@ class App:
         self.canvas.bind("<B1-Motion>", self.draw)
         self.canvas.bind("<Button-1>", self.draw)
 
+        # Prawy panel boczny
         side = tk.Frame(self.root, bg="#000000", padx=15)
         side.grid(row=0, column=1, sticky="nsew")
 
-        self.total_lbl = tk.Label(
+        # --- SEKCJA: STATYSTYKI ---
+        stats_frame = tk.LabelFrame(
             side,
+            text=" Statystyki ",
+            fg="#888",
+            bg="#000000",
+            font=("Arial", 10, "bold"),
+            padx=10,
+            pady=10,
+        )
+        stats_frame.pack(fill="x", pady=5)
+
+        self.total_lbl = tk.Label(
+            stats_frame,
             text="BAZA: 0",
             fg="#00ff41",
             bg="#000000",
-            font=("Courier", 14, "bold"),
+            font=("Courier", 12, "bold"),
         )
-        self.total_lbl.pack(pady=(20, 5))
+        self.total_lbl.pack()
 
         self.class_stat_lbl = tk.Label(
-            side, text="P-0  R-0  O-0", fg="white", bg="#000000", font=("Courier", 11)
+            stats_frame,
+            text="P-0 R-0 O-0",
+            fg="white",
+            bg="#000000",
+            font=("Courier", 10),
+            justify="left",
         )
-        self.class_stat_lbl.pack(pady=(0, 20))
+        self.class_stat_lbl.pack(pady=5)
 
+        # --- SEKCJA: DODAWANIE PRÓBEK ---
         tk.Label(
             side,
-            text="ADD SAMPLES (clicks):",
+            text="DODAJ PRÓBKI (kliknięcia):",
             fg="#888",
             bg="#000000",
             font=("Arial", 8, "bold"),
-        ).pack(anchor="w")
+        ).pack(anchor="w", pady=(10, 0))
+
+        # Ramka na przyciski dodawania (Naprawiony NameError)
+        add_frame = tk.Frame(side, bg="#000000")
+        add_frame.pack(fill="x", pady=5)
 
         self.manual_labels = {}
         for i, char in enumerate(["P", "R", "O"]):
-            f = tk.Frame(side, bg="#111", padx=5, pady=5)
+            f = tk.Frame(add_frame, bg="#111", padx=5, pady=5)
             f.pack(fill="x", pady=2)
             tk.Button(
                 f,
-                text=f"{char}",
+                text=f"Dodaj {char}",
                 bg="#222",
                 fg="white",
                 font=("Arial", 9, "bold"),
-                width=10,
-                command=lambda idx=i: self.add_to_dataset(idx),
+                width=12,
+                command=lambda idx=i: self.add_sample(idx),
             ).pack(side="left")
             lbl = tk.Label(
                 f, text="0", fg="#00ff41", bg="#111", font=("Arial", 10, "bold")
@@ -150,10 +179,47 @@ class App:
             lbl.pack(side="right", padx=10)
             self.manual_labels[i] = lbl
 
-        ttk.Separator(side, orient="horizontal").pack(fill="x", pady=20)
+        # --- SEKCJA: TRYB ZAPISU ---
+        mode_frame = tk.LabelFrame(
+            side,
+            text=" TRYB ZAPISU ",
+            fg="#888",
+            bg="#000000",
+            font=("Arial", 10, "bold"),
+            padx=10,
+            pady=10,
+        )
+        mode_frame.pack(fill="x", pady=10)
 
-        tk.Label(side, text="EPOCHY", fg="white", bg="#000000").pack()
-        self.epoch_var = tk.IntVar(value=30)
+        self.mode_var = tk.StringVar(value="train")
+        tk.Radiobutton(
+            mode_frame,
+            text="Uczenie (Trening)",
+            variable=self.mode_var,
+            value="train",
+            bg="#000000",
+            fg="white",
+            selectcolor="#222",
+            activebackground="#333333",
+            activeforeground="#00ff41",
+        ).pack(anchor="w")
+        tk.Radiobutton(
+            mode_frame,
+            text="Testowanie (Zestaw testowy)",
+            variable=self.mode_var,
+            value="test",
+            bg="#000000",
+            fg="white",
+            selectcolor="#222",
+            activebackground="#333333",
+            activeforeground="#00ff41",
+        ).pack(anchor="w")
+
+        ttk.Separator(side, orient="horizontal").pack(fill="x", pady=15)
+
+        # --- SEKCJA: TRENOWANIE ---
+        tk.Label(side, text="EPOKI", fg="white", bg="#000000").pack()
+        self.epoch_var = tk.IntVar(value=5)
         tk.Spinbox(
             side,
             from_=1,
@@ -172,6 +238,7 @@ class App:
             font=("Arial", 10, "bold"),
             command=self.run_training_session,
         ).pack(fill="x", pady=5)
+
         tk.Button(
             side,
             text="STATYSTYKA",
@@ -180,8 +247,17 @@ class App:
             command=self.show_stats,
         ).pack(fill="x")
 
-        ttk.Separator(side, orient="horizontal").pack(fill="x", pady=20)
+        tk.Button(
+            side,
+            text="Statystyki zestawu testowego",
+            bg="#3498db",
+            fg="white",
+            command=self.show_accuracy_stats,
+        ).pack(fill="x", pady=5)
 
+        ttk.Separator(side, orient="horizontal").pack(fill="x", pady=15)
+
+        # --- GŁÓWNE PRZYCISKI AKCJI ---
         tk.Button(
             side,
             text="SPRAWDŹ",
@@ -191,27 +267,43 @@ class App:
             height=2,
             command=self.predict,
         ).pack(fill="x", pady=5)
+
         tk.Button(
-            side, text="CLEAR", bg="#222", fg="white", command=self.clear_canvas
+            side, text="WYCZYŚĆ", bg="#222", fg="white", command=self.clear_canvas
         ).pack(fill="x", pady=2)
+
+        ttk.Separator(side, orient="horizontal").pack(fill="x", pady=10)
+
         tk.Button(
             side,
             text="USUŃ BAZĘ",
             bg="#c0392b",
             fg="white",
             command=self.reset_all_data,
-        ).pack(fill="x", pady=(20, 0))
+        ).pack(fill="x", pady=2)
+
+        tk.Button(
+            side,
+            text="USUŃ BAZĘ TESTOWĄ",
+            bg="#e67e22",
+            fg="white",
+            command=self.reset_test_data,
+        ).pack(fill="x", pady=2)
+
         tk.Button(
             side,
             text="RESET WAGI",
             bg="#444",
             fg="white",
             command=self.reset_weights_action,
-        ).pack(fill="x", pady=5)
+        ).pack(fill="x", pady=2)
 
+        # Aktualizacja wyświetlania statystyk
         self.update_stat_display()
 
     def draw(self, event):
+        self.canvas.config(highlightbackground="#222")
+
         w = self.canvas.winfo_width() / self.grid_size
         h = self.canvas.winfo_height() / self.grid_size
         x, y = int(event.x / w), int(event.y / h)
@@ -270,6 +362,33 @@ class App:
         self.update_stat_display()
         self.clear_canvas()
 
+    def load_test_dataset(self):
+        if os.path.exists(self.test_dataset_file):
+            try:
+                with open(self.test_dataset_file, "rb") as f:
+                    self.test_dataset = pickle.load(f)
+            except:
+                self.test_dataset = []
+
+    def save_test_dataset(self):
+        with open(self.test_dataset_file, "wb") as f:
+            pickle.dump(self.test_dataset, f)
+
+    def add_sample(self, label):
+        if self.mode_var.get() == "test":
+            self.add_to_test(label)
+        else:
+            self.add_to_dataset(label)
+
+    def add_to_test(self, label):
+        processed = self.process_image(self.drawing_data)
+        if processed is None:
+            return
+        self.test_dataset.append((processed.flatten(), label))
+        self.save_test_dataset()
+        self.clear_canvas()
+        self.update_stat_display()
+
     def run_training_session(self):
         if len(self.dataset) < 5:
             return
@@ -297,14 +416,14 @@ class App:
         ax.plot(self.nn.history, color="#00ff41", linewidth=2)
         ax.grid(True, color="#333333", linestyle="--", linewidth=0.5)
         ax.set_title(
-            "TRAINING LOSS DYNAMICS",
+            "LOSS",
             color="white",
             fontsize=12,
             pad=15,
             fontweight="bold",
         )
         ax.set_xlabel("Epochs", color="#888", fontsize=10)
-        ax.set_ylabel("Error (MSE)", color="#888", fontsize=10)
+        ax.set_ylabel("Error", color="#888", fontsize=10)
         ax.tick_params(colors="white", labelsize=9)
 
         for spine in ax.spines.values():
@@ -316,21 +435,118 @@ class App:
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
 
+    def show_accuracy_stats(self):
+        if not self.test_dataset:
+            messagebox.showwarning("!", "Nie ma danych testowych!")
+            return
+
+        correct = 0
+        total = len(self.test_dataset)
+
+        class_total = [0, 0, 0]
+        class_correct = [0, 0, 0]
+        labels = ["P", "R", "O"]
+
+        for x, y_true in self.test_dataset:
+            out = self.nn.forward(x.reshape(1, -1))
+            y_pred = np.argmax(out)
+            class_total[y_true] += 1
+            if y_pred == y_true:
+                correct += 1
+                class_correct[y_true] += 1
+
+        accuracy = (correct / total) * 100
+
+        percents = [
+            (class_correct[i] / class_total[i] * 100) if class_total[i] > 0 else 0
+            for i in range(3)
+        ]
+
+        win = tk.Toplevel(self.root)
+        win.title("Statystyki Dokładności")
+        win.configure(bg="#000000")
+
+        fig, ax = plt.subplots(figsize=(6, 4), facecolor="#000000")
+        ax.set_facecolor("#000000")
+
+        bars = ax.bar(
+            labels, percents, color="#00ff41", edgecolor="white", linewidth=0.5
+        )
+
+        ax.set_ylim(0, 105)
+        ax.grid(True, color="#333333", linestyle="--", linewidth=0.5, axis="y")
+
+        ax.set_title(
+            f"DOKŁADNOŚĆ OGÓLNA: {accuracy:.1f}%",
+            color="white",
+            fontsize=12,
+            fontweight="bold",
+            pad=15,
+        )
+        ax.set_ylabel("Procent (%)", color="#888", fontsize=10)
+        ax.tick_params(colors="white", labelsize=10)
+
+        for bar in bars:
+            height = bar.get_height()
+            ax.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                height + 2,
+                f"{int(height)}%",
+                ha="center",
+                va="bottom",
+                color="white",
+                fontsize=10,
+            )
+
+        for spine in ax.spines.values():
+            spine.set_color("#444444")
+
+        fig.tight_layout()
+
+        # Виведення в Tkinter
+        canvas = FigureCanvasTkAgg(fig, master=win)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Також виведемо текстове повідомлення, як і раніше
+        messagebox.showinfo(
+            "Wynik testu",
+            f"Ogólna dokładność: {accuracy:.1f}%\nPoprawne: {correct} z {total}",
+        )
+
     def predict(self):
         img = self.process_image(self.drawing_data)
         if img is None:
+            messagebox.showwarning("!", "Narysuj coś na płótnie")
             return
 
-        out = self.nn.forward(img.flatten().reshape(1, -1), T=1.8)
-        idx = np.argmax(out)
-        conf = out[0][idx] * 100
+        self.nn.forward(img.flatten().reshape(1, -1), T=1.0)
+        logits = self.nn.z2[0]
 
-        conf += np.random.uniform(-0.7, 0.7)
-        if conf > 96.0:
-            conf = 93.0 + np.random.uniform(0, 2)
+        exp_logits = np.exp(logits - np.max(logits))
+        probs = exp_logits / np.sum(exp_logits)
 
-        res_txt = ["P", "R", "O"]
-        messagebox.showinfo("Result", f"To jest: {res_txt[idx]} ({conf:.1f}%)")
+        idx = np.argmax(probs)
+        max_prob = probs[idx]
+
+        sorted_probs = np.sort(probs)
+        diff = sorted_probs[-1] - sorted_probs[-2]
+        is_unsure = max_prob < 0.60 or diff < 0.25
+
+        if is_unsure:
+            self.canvas.config(highlightbackground="red")
+            messagebox.showwarning(
+                "Wynik",
+                f"Niepewny wynik.\n"
+                f"Prawdopodobieństwo: {max_prob * 100:.1f}%\n"
+                f"Różnica klas: {diff * 100:.1f}%",
+            )
+        else:
+            self.canvas.config(highlightbackground="#00ff41")
+            res_txt = ["P", "R", "O"]
+            messagebox.showinfo(
+                "Wynik", f"Rozpoznano: {res_txt[idx]}\nPewność: {max_prob * 100:.1f}%"
+            )
 
     def reset_all_data(self):
         if messagebox.askyesno("?", "Usunąć bazę?"):
@@ -348,18 +564,38 @@ class App:
 
         messagebox.showinfo("!", "Wagi zresetowane")
 
+    def reset_test_data(self):
+        if messagebox.askyesno("?", "Usunąć bazę testową?"):
+            self.test_dataset = []
+            self.update_stat_display()
+            if os.path.exists(self.test_dataset_file):
+                os.remove(self.test_dataset_file)
+            messagebox.showinfo("!", "Baza testowa została usunięta")
+
     def update_stat_display(self):
         counts = [0, 0, 0]
         for _, y in self.dataset:
             counts[y] += 1
-        self.total_lbl.config(text=f"BAZA: {len(self.dataset)}")
-        self.class_stat_lbl.config(text=f"P-{counts[0]}  R-{counts[1]}  O-{counts[2]}")
+
+        test_counts = [0, 0, 0]
+        for _, y in self.test_dataset:
+            test_counts[y] += 1
+
+        self.total_lbl.config(
+            text=f"BAZA: {len(self.dataset)} | Test: {len(self.test_dataset)}"
+        )
+        self.class_stat_lbl.config(
+            text=f"TRAIN: P-{counts[0]} R-{counts[1]} O-{counts[2]}\n"
+            f"TEST:  P-{test_counts[0]} R-{test_counts[1]} O-{test_counts[2]}"
+        )
+
         for i in range(3):
             self.manual_labels[i].config(text=str(self.manual_counts[i]))
 
     def clear_canvas(self):
         self.drawing_data.fill(0)
         self.redraw_grid()
+        self.canvas.config(highlightbackground="#222")
 
     def save_dataset(self):
         with open(self.dataset_file, "wb") as f:
