@@ -351,12 +351,20 @@ class App:
             return
         self.manual_counts[label] += 1
 
-        for m in [False, True]:
-            current = np.fliplr(processed) if m else processed
-            for angle in range(0, 360, 30):
-                rot = rotate(current, angle, reshape=False, order=0)
-                noise = np.random.normal(0, 0.05, rot.shape)
-                self.dataset.append(((rot + noise).flatten(), label))
+        self.dataset.append((processed.flatten(), label))
+
+        for angle in [-12, -6, 6, 12]:
+            rot = rotate(processed, angle, reshape=False, order=1)
+            self.dataset.append((np.where(rot > 0.3, 1.0, 0.0).flatten(), label))
+
+        for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+            shifted = np.roll(processed, shift=dx, axis=1)
+            shifted = np.roll(shifted, shift=dy, axis=0)
+            self.dataset.append((shifted.flatten(), label))
+
+        noise = np.random.normal(0, 0.05, processed.shape)
+        noised = np.clip(processed + noise, 0, 1)
+        self.dataset.append((noised.flatten(), label))
 
         self.save_dataset()
         self.update_stat_display()
@@ -503,12 +511,10 @@ class App:
 
         fig.tight_layout()
 
-        # Виведення в Tkinter
         canvas = FigureCanvasTkAgg(fig, master=win)
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Також виведемо текстове повідомлення, як і раніше
         messagebox.showinfo(
             "Wynik testu",
             f"Ogólna dokładność: {accuracy:.1f}%\nPoprawne: {correct} z {total}",
@@ -517,35 +523,35 @@ class App:
     def predict(self):
         img = self.process_image(self.drawing_data)
         if img is None:
-            messagebox.showwarning("!", "Narysuj coś na płótnie")
+            messagebox.showwarning("Błąd", "Najpierw narysuj coś na polu!")
             return
 
-        self.nn.forward(img.flatten().reshape(1, -1), T=1.0)
-        logits = self.nn.z2[0]
+        probs = self.nn.forward(img.flatten().reshape(1, -1), T=1.0)[0]
 
-        exp_logits = np.exp(logits - np.max(logits))
-        probs = exp_logits / np.sum(exp_logits)
+        top_indices = np.argsort(probs)[-2:][::-1]
+        idx1, idx2 = top_indices[0], top_indices[1]
 
-        idx = np.argmax(probs)
-        max_prob = probs[idx]
+        prob1, prob2 = probs[idx1], probs[idx2]
+        diff = prob1 - prob2
 
-        sorted_probs = np.sort(probs)
-        diff = sorted_probs[-1] - sorted_probs[-2]
-        is_unsure = max_prob < 0.60 or diff < 0.25
+        labels = ["P", "R", "O"]
 
-        if is_unsure:
-            self.canvas.config(highlightbackground="red")
+        is_confused = prob1 < 0.55 or diff < 0.20
+
+        if is_confused:
+            self.canvas.config(highlightbackground="#e67e22")
             messagebox.showwarning(
-                "Wynik",
-                f"Niepewny wynik.\n"
-                f"Prawdopodobieństwo: {max_prob * 100:.1f}%\n"
-                f"Różnica klas: {diff * 100:.1f}%",
+                "Wynik niepewny",
+                f"Model nie jest pewien.\n\n"
+                f"Prawdopodobnie to: {labels[idx1]} ({prob1 * 100:.1f}%)\n"
+                f"Ale może to być też: {labels[idx2]} ({prob2 * 100:.1f}%)\n\n"
+                f"Spróbuj narysować literę wyraźniej.",
             )
         else:
             self.canvas.config(highlightbackground="#00ff41")
-            res_txt = ["P", "R", "O"]
             messagebox.showinfo(
-                "Wynik", f"Rozpoznano: {res_txt[idx]}\nPewność: {max_prob * 100:.1f}%"
+                "Sukces",
+                f"Rozpoznano literę: {labels[idx1]}\nPewność: {prob1 * 100:.1f}%",
             )
 
     def reset_all_data(self):
