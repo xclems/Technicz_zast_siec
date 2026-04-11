@@ -1,6 +1,7 @@
 import os
 import pickle
 import tkinter as tk
+import threading
 from tkinter import messagebox, ttk
 
 import matplotlib.pyplot as plt
@@ -12,18 +13,19 @@ from scipy.ndimage import rotate, zoom
 class DeepNeuralNetwork:
     def __init__(self):
         self.input_size = 256
-        self.hidden_size = 128
+        self.h1_size = 12
+        self.h2_size = 8
         self.output_size = 3
-        self.lr = 0.001
+        self.lr = 0.01
         self.weights_file = "model_weights.pkl"
         self.history = []
         self.reset_weights()
         self.load_model()
 
     def reset_weights(self):
-        limit = np.sqrt(6 / (self.input_size + self.hidden_size))
-        self.W1 = np.random.uniform(-limit, limit, (self.input_size, self.hidden_size))
-        self.W2 = np.random.uniform(-limit, limit, (self.hidden_size, self.output_size))
+        self.W1 = np.random.randn(self.input_size, self.h1_size) * np.sqrt(1/self.input_size)
+        self.W2 = np.random.randn(self.h1_size, self.h2_size) * np.sqrt(1/self.h1_size)
+        self.W3 = np.random.randn(self.h2_size, self.output_size) * np.sqrt(1/self.h2_size)
         self.history = []
 
     def leaky_relu(self, x):
@@ -36,43 +38,47 @@ class DeepNeuralNetwork:
         ex = np.exp((x - np.max(x)) / T)
         return ex / np.sum(ex, axis=1, keepdims=True)
 
-    def forward(self, X, T=1.0):
-        self.z1 = np.dot(X, self.W1)
-        self.hidden = self.leaky_relu(self.z1)
-        self.z2 = np.dot(self.hidden, self.W2)
-        return self.softmax(self.z2, T)
+    def forward(self, X,T=1.0):
+        self.a0 = X
+        self.z1 = np.dot(self.a0, self.W1)
+        self.a1 = self.leaky_relu(self.z1)
+        self.z2 = np.dot(self.a1, self.W2)
+        self.a2 = self.leaky_relu(self.z2)
+        self.z3 = np.dot(self.a2, self.W3)
+        return self.softmax(self.z3, T)
 
     def train_step(self, X, y_label):
         target = np.zeros((1, 3))
         target[0, y_label] = 1
         output = self.forward(X)
-        error = output - target
+        error_out = output - target
+        d_W3 = self.a2.T.dot(error_out)
+        error_h2 = error_out.dot(self.W3.T) * self.leaky_relu_derivative(self.a2)
+        d_W2 = self.a1.T.dot(error_h2)
+        error_h1 = error_h2.dot(self.W2.T) * self.leaky_relu_derivative(self.a1)
+        d_W1 = self.a0.T.dot(error_h1)
 
-        # Backpropagation
-        d_W2 = self.hidden.T.dot(error)
-        error_hidden = error.dot(self.W2.T) * self.leaky_relu_derivative(self.hidden)
-        d_W1 = X.T.dot(error_hidden)
-
+        self.W3 -= self.lr * d_W3
         self.W2 -= self.lr * d_W2
         self.W1 -= self.lr * d_W1
-        return np.mean(np.square(error))
+
+        return np.mean(np.square(error_out))
 
     def save_model(self):
         with open(self.weights_file, "wb") as f:
-            pickle.dump({"W1": self.W1, "W2": self.W2, "history": self.history}, f)
+            pickle.dump({"W1": self.W1, "W2": self.W2, "W3": self.W3, "history": self.history}, f)
 
     def load_model(self):
         if os.path.exists(self.weights_file):
             try:
                 with open(self.weights_file, "rb") as f:
                     data = pickle.load(f)
-                    self.W1, self.W2, self.history = (
-                        data["W1"],
-                        data["W2"],
-                        data.get("history", []),
-                    )
-            except:
-                pass
+                    self.W1 = data["W1"]
+                    self.W2 = data["W2"]
+                    self.W3 = data["W3"]
+                    self.history = data.get("history", [])
+            except Exception as e:
+                print(f"Błąd ladowania: {e}")
 
 
 class App:
@@ -257,6 +263,19 @@ class App:
 
         ttk.Separator(side, orient="horizontal").pack(fill="x", pady=15)
 
+        # --- PROGRES ---
+        self.progress = ttk.Progressbar(
+            side,
+            orient="horizontal",
+            length=200,
+            mode="determinate"
+        )
+        self.progress.pack(fill="x", pady=10)
+
+        style = ttk.Style()
+        style.theme_use('default')
+        style.configure("TProgressbar", thickness=10, background="#00ff41", troughcolor="#111")
+
         # --- GŁÓWNE PRZYCISKI AKCJI ---
         tk.Button(
             side,
@@ -399,17 +418,29 @@ class App:
 
     def run_training_session(self):
         if len(self.dataset) < 5:
+            messagebox.showwarning("!", "Zamało danych dla uczenia")
             return
-        epochs = self.epoch_var.get()
-        self.nn.history = []
-        for _ in range(epochs):
-            loss = 0
-            np.random.shuffle(self.dataset)
-            for x, y in self.dataset:
-                loss += self.nn.train_step(x.reshape(1, -1), y)
-            self.nn.history.append(loss / len(self.dataset))
-        self.nn.save_model()
-        messagebox.showinfo("OK", "Trening zakończony!")
+
+        def training_process():
+            epochs = self.epoch_var.get()
+            self.nn.history = []
+            self.progress["maximum"] = epochs
+
+            for i in range(epochs):
+                loss = 0
+                np.random.shuffle(self.dataset)
+                for x, y in self.dataset:
+                    loss += self.nn.train_step(x.reshape(1, -1), y)
+
+                avg_loss = loss / len(self.dataset)
+                self.nn.history.append(avg_loss)
+                self.progress["value"] = i + 1
+                self.root.update_idletasks()
+
+            self.nn.save_model()
+            self.progress["value"] = 0
+            messagebox.showinfo("OK", f"Uczenie zakonczone!\nBłąd koncowy: {self.nn.history[-1]:.4f}")
+        threading.Thread(target=training_process, daemon=True).start()
 
     def show_stats(self):
         if not self.nn.history:
@@ -450,7 +481,6 @@ class App:
 
         correct = 0
         total = len(self.test_dataset)
-
         class_total = [0, 0, 0]
         class_correct = [0, 0, 0]
         labels = ["P", "R", "O"]
@@ -464,61 +494,58 @@ class App:
                 class_correct[y_true] += 1
 
         accuracy = (correct / total) * 100
-
         percents = [
             (class_correct[i] / class_total[i] * 100) if class_total[i] > 0 else 0
             for i in range(3)
         ]
 
         win = tk.Toplevel(self.root)
-        win.title("Statystyki Dokładności")
+        win.title("Analityka Testowa")
+        win.geometry("600x650")
         win.configure(bg="#000000")
 
         fig, ax = plt.subplots(figsize=(6, 4), facecolor="#000000")
         ax.set_facecolor("#000000")
+        bars = ax.bar(labels, percents, color="#3498db", edgecolor="white", linewidth=0.5)
 
-        bars = ax.bar(
-            labels, percents, color="#00ff41", edgecolor="white", linewidth=0.5
-        )
-
-        ax.set_ylim(0, 105)
-        ax.grid(True, color="#333333", linestyle="--", linewidth=0.5, axis="y")
-
-        ax.set_title(
-            f"DOKŁADNOŚĆ OGÓLNA: {accuracy:.1f}%",
-            color="white",
-            fontsize=12,
-            fontweight="bold",
-            pad=15,
-        )
-        ax.set_ylabel("Procent (%)", color="#888", fontsize=10)
+        ax.set_ylim(0, 110)
+        ax.grid(True, color="#222", linestyle="--", linewidth=0.5, axis="y")
+        ax.set_title("DOKŁADNOŚĆ PO KLASACH (%)", color="white", fontsize=12, fontweight="bold", pad=20)
         ax.tick_params(colors="white", labelsize=10)
 
         for bar in bars:
             height = bar.get_height()
-            ax.text(
-                bar.get_x() + bar.get_width() / 2.0,
-                height + 2,
-                f"{int(height)}%",
-                ha="center",
-                va="bottom",
-                color="white",
-                fontsize=10,
-            )
+            ax.text(bar.get_x() + bar.get_width()/2., height + 3,
+                    f"{int(height)}%", ha='center', va='bottom', color="#00ff41", fontweight="bold")
 
         for spine in ax.spines.values():
-            spine.set_color("#444444")
+            spine.set_color("#444")
 
         fig.tight_layout()
-
         canvas = FigureCanvasTkAgg(fig, master=win)
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
 
-        messagebox.showinfo(
-            "Wynik testu",
-            f"Ogólna dokładność: {accuracy:.1f}%\nPoprawne: {correct} z {total}",
-        )
+        info_frame = tk.Frame(win, bg="#111", bd=1, relief="sunken")
+        info_frame.pack(fill="x", padx=20, pady=(0, 20))
+
+        main_info = f"OGÓLNY WYNIK: {correct} / {total} ({accuracy:.1f}%)"
+        tk.Label(
+            info_frame, text=main_info, fg="#00ff41", bg="#111",
+            font=("Courier", 14, "bold"), pady=10
+        ).pack()
+
+        details_str = " | ".join([f"{labels[i]}: {class_correct[i]}/{class_total[i]}" for i in range(3)])
+        tk.Label(
+            info_frame, text=details_str, fg="#888", bg="#111",
+            font=("Arial", 10)
+        ).pack(pady=(0, 10))
+
+        # Кнопка закриття
+        tk.Button(
+            win, text="ZAMKNIJ", bg="#333", fg="white",
+            command=win.destroy, relief="flat", cursor="hand2"
+        ).pack(pady=5)
 
     def predict(self):
         img = self.process_image(self.drawing_data)
@@ -526,32 +553,35 @@ class App:
             messagebox.showwarning("Błąd", "Najpierw narysuj coś na polu!")
             return
 
-        probs = self.nn.forward(img.flatten().reshape(1, -1), T=1.0)[0]
+        self.nn.forward(img.flatten().reshape(1, -1))
+        logits = self.nn.z3[0]
+        probs = self.nn.softmax(self.nn.z3)[0]
 
         top_indices = np.argsort(probs)[-2:][::-1]
         idx1, idx2 = top_indices[0], top_indices[1]
-
         prob1, prob2 = probs[idx1], probs[idx2]
-        diff = prob1 - prob2
 
         labels = ["P", "R", "O"]
 
-        is_confused = prob1 < 0.55 or diff < 0.20
+        is_trash = logits[idx1] < 0.8
+        is_uncertain = prob1 < 0.65 or (prob1 - prob2) < 0.30
+        ink_density = np.mean(img)
+        is_weird_shape = ink_density < 0.05 or ink_density > 0.5
 
-        if is_confused:
-            self.canvas.config(highlightbackground="#e67e22")
+        if is_trash or is_uncertain or is_weird_shape:
+            self.canvas.config(highlightbackground="#e74c3c")
+            debug_msg = f"Logit: {logits[idx1]:.2f}, Prob: {prob1:.2f}, Ink: {ink_density:.2f}"
+            print(f"Відхилено: {debug_msg}")
             messagebox.showwarning(
-                "Wynik niepewny",
-                f"Model nie jest pewien.\n\n"
-                f"Prawdopodobnie to: {labels[idx1]} ({prob1 * 100:.1f}%)\n"
-                f"Ale może to być też: {labels[idx2]} ({prob2 * 100:.1f}%)\n\n"
-                f"Spróbuj narysować literę wyraźniej.",
+                "Nie rozpoznano",
+                "To nie przypomina żadnej ze znanych liter (P, R, O).\n\n"
+                "Spróbuj narysować wyraźniej."
             )
         else:
             self.canvas.config(highlightbackground="#00ff41")
             messagebox.showinfo(
                 "Sukces",
-                f"Rozpoznano literę: {labels[idx1]}\nPewność: {prob1 * 100:.1f}%",
+                f"Rozpoznano literę: {labels[idx1]}\nPewność: {prob1 * 100:.1f}%"
             )
 
     def reset_all_data(self):
