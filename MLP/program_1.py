@@ -1,7 +1,7 @@
 import os
 import pickle
-import tkinter as tk
 import threading
+import tkinter as tk
 from tkinter import messagebox, ttk
 
 import matplotlib.pyplot as plt
@@ -23,9 +23,15 @@ class DeepNeuralNetwork:
         self.load_model()
 
     def reset_weights(self):
-        self.W1 = np.random.randn(self.input_size, self.h1_size) * np.sqrt(1/self.input_size)
-        self.W2 = np.random.randn(self.h1_size, self.h2_size) * np.sqrt(1/self.h1_size)
-        self.W3 = np.random.randn(self.h2_size, self.output_size) * np.sqrt(1/self.h2_size)
+        self.W1 = np.random.randn(self.input_size, self.h1_size) * np.sqrt(
+            1 / self.input_size
+        )
+        self.W2 = np.random.randn(self.h1_size, self.h2_size) * np.sqrt(
+            1 / self.h1_size
+        )
+        self.W3 = np.random.randn(self.h2_size, self.output_size) * np.sqrt(
+            1 / self.h2_size
+        )
         self.history = []
 
     def leaky_relu(self, x):
@@ -38,7 +44,7 @@ class DeepNeuralNetwork:
         ex = np.exp((x - np.max(x)) / T)
         return ex / np.sum(ex, axis=1, keepdims=True)
 
-    def forward(self, X,T=1.0):
+    def forward(self, X, T=1.0):
         self.a0 = X
         self.z1 = np.dot(self.a0, self.W1)
         self.a1 = self.leaky_relu(self.z1)
@@ -66,7 +72,10 @@ class DeepNeuralNetwork:
 
     def save_model(self):
         with open(self.weights_file, "wb") as f:
-            pickle.dump({"W1": self.W1, "W2": self.W2, "W3": self.W3, "history": self.history}, f)
+            pickle.dump(
+                {"W1": self.W1, "W2": self.W2, "W3": self.W3, "history": self.history},
+                f,
+            )
 
     def load_model(self):
         if os.path.exists(self.weights_file):
@@ -85,7 +94,7 @@ class App:
     def __init__(self, root):
         self.root = root
         self.root.title("PRO")
-        self.root.geometry("1100x850")
+        self.root.geometry("1100x870")
         self.root.minsize(950, 650)
         self.root.configure(bg="#000000")
 
@@ -265,16 +274,15 @@ class App:
 
         # --- PROGRES ---
         self.progress = ttk.Progressbar(
-            side,
-            orient="horizontal",
-            length=200,
-            mode="determinate"
+            side, orient="horizontal", length=200, mode="determinate"
         )
         self.progress.pack(fill="x", pady=10)
 
         style = ttk.Style()
-        style.theme_use('default')
-        style.configure("TProgressbar", thickness=10, background="#00ff41", troughcolor="#111")
+        style.theme_use("default")
+        style.configure(
+            "TProgressbar", thickness=10, background="#00ff41", troughcolor="#111"
+        )
 
         # --- GŁÓWNE PRZYCISKI AKCJI ---
         tk.Button(
@@ -439,7 +447,10 @@ class App:
 
             self.nn.save_model()
             self.progress["value"] = 0
-            messagebox.showinfo("OK", f"Uczenie zakonczone!\nBłąd koncowy: {self.nn.history[-1]:.4f}")
+            messagebox.showinfo(
+                "OK", f"Uczenie zakonczone!\nBłąd koncowy: {self.nn.history[-1]:.4f}"
+            )
+
         threading.Thread(target=training_process, daemon=True).start()
 
     def show_stats(self):
@@ -455,7 +466,7 @@ class App:
         ax.plot(self.nn.history, color="#00ff41", linewidth=2)
         ax.grid(True, color="#333333", linestyle="--", linewidth=0.5)
         ax.set_title(
-            "LOSS",
+            f"LOSS {self.nn.history[-1]:.6f}",
             color="white",
             fontsize=12,
             pad=15,
@@ -506,17 +517,32 @@ class App:
 
         fig, ax = plt.subplots(figsize=(6, 4), facecolor="#000000")
         ax.set_facecolor("#000000")
-        bars = ax.bar(labels, percents, color="#3498db", edgecolor="white", linewidth=0.5)
+        bars = ax.bar(
+            labels, percents, color="#3498db", edgecolor="white", linewidth=0.5
+        )
 
         ax.set_ylim(0, 110)
         ax.grid(True, color="#222", linestyle="--", linewidth=0.5, axis="y")
-        ax.set_title("DOKŁADNOŚĆ PO KLASACH (%)", color="white", fontsize=12, fontweight="bold", pad=20)
+        ax.set_title(
+            "DOKŁADNOŚĆ PO KLASACH (%)",
+            color="white",
+            fontsize=12,
+            fontweight="bold",
+            pad=20,
+        )
         ax.tick_params(colors="white", labelsize=10)
 
         for bar in bars:
             height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2., height + 3,
-                    f"{int(height)}%", ha='center', va='bottom', color="#00ff41", fontweight="bold")
+            ax.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                height + 3,
+                f"{int(height)}%",
+                ha="center",
+                va="bottom",
+                color="#00ff41",
+                fontweight="bold",
+            )
 
         for spine in ax.spines.values():
             spine.set_color("#444")
@@ -531,20 +557,30 @@ class App:
 
         main_info = f"OGÓLNY WYNIK: {correct} / {total} ({accuracy:.1f}%)"
         tk.Label(
-            info_frame, text=main_info, fg="#00ff41", bg="#111",
-            font=("Courier", 14, "bold"), pady=10
+            info_frame,
+            text=main_info,
+            fg="#00ff41",
+            bg="#111",
+            font=("Courier", 14, "bold"),
+            pady=10,
         ).pack()
 
-        details_str = " | ".join([f"{labels[i]}: {class_correct[i]}/{class_total[i]}" for i in range(3)])
+        details_str = " | ".join(
+            [f"{labels[i]}: {class_correct[i]}/{class_total[i]}" for i in range(3)]
+        )
         tk.Label(
-            info_frame, text=details_str, fg="#888", bg="#111",
-            font=("Arial", 10)
+            info_frame, text=details_str, fg="#888", bg="#111", font=("Arial", 10)
         ).pack(pady=(0, 10))
 
         # Кнопка закриття
         tk.Button(
-            win, text="ZAMKNIJ", bg="#333", fg="white",
-            command=win.destroy, relief="flat", cursor="hand2"
+            win,
+            text="ZAMKNIJ",
+            bg="#333",
+            fg="white",
+            command=win.destroy,
+            relief="flat",
+            cursor="hand2",
         ).pack(pady=5)
 
     def predict(self):
@@ -570,18 +606,20 @@ class App:
 
         if is_trash or is_uncertain or is_weird_shape:
             self.canvas.config(highlightbackground="#e74c3c")
-            debug_msg = f"Logit: {logits[idx1]:.2f}, Prob: {prob1:.2f}, Ink: {ink_density:.2f}"
+            debug_msg = (
+                f"Logit: {logits[idx1]:.2f}, Prob: {prob1:.2f}, Ink: {ink_density:.2f}"
+            )
             print(f"Відхилено: {debug_msg}")
             messagebox.showwarning(
                 "Nie rozpoznano",
                 "To nie przypomina żadnej ze znanych liter (P, R, O).\n\n"
-                "Spróbuj narysować wyraźniej."
+                "Spróbuj narysować wyraźniej.",
             )
         else:
             self.canvas.config(highlightbackground="#00ff41")
             messagebox.showinfo(
                 "Sukces",
-                f"Rozpoznano literę: {labels[idx1]}\nPewność: {prob1 * 100:.1f}%"
+                f"Rozpoznano literę: {labels[idx1]}\nPewność: {prob1 * 100:.1f}%",
             )
 
     def reset_all_data(self):
