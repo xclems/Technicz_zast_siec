@@ -1,102 +1,141 @@
 import tkinter as tk
 import numpy as np
 
+
 class SOM2D:
-    def __init__(self, wielkosc=8, typ_ksztaltu="circle"):
-        self.wielkosc = wielkosc
+    def __init__(self, w, h, typ_ksztaltu="circle"):
+        self.wielkosc_x = w
+        self.wielkosc_y = h
         self.typ_ksztaltu = typ_ksztaltu
-        self.poczatkowe_lr = 0.6 
-        self.poczatkowa_sigma = wielkosc / 2.0
-        self.x, self.y = np.meshgrid(np.arange(wielkosc), np.arange(wielkosc))
+        
+
+        self.eta_start = 0.1
+        self.epsEta = 0.9999
+        self.S_start = np.sqrt(w * h) / 1.5 
+        self.epsS = 0.9999
+        
         self.resetuj()
 
     def resetuj(self):
-        self.wagi = 0.49 + 0.02 * np.random.rand(self.wielkosc, self.wielkosc, 2)
-        self.lr = self.poczatkowe_lr
-        self.sigma = self.poczatkowa_sigma
+
+        self.wagi = 0.495 + np.random.rand(self.wielkosc_y, self.wielkosc_x, 2) * 0.01
+        self.eta = self.eta_start
+        self.S = self.S_start
+
+    def dist2(self, waga, wejscie):
+        return (waga[0] - wejscie[0])**2 + (waga[1] - wejscie[1])**2
+
+    def fS(self, d):
+        if self.S < 0.001: return 0.0
+        return 1.0 - d / self.S
 
     def ogranicz_wagi(self):
-        if self.typ_ksztaltu == "circle":
-            srodek = np.array([0.5, 0.5])
-            roznica = self.wagi - srodek
-            odleglosc = np.linalg.norm(roznica, axis=2)
-            maska = odleglosc > 0.35
-            if np.any(maska):
-                roznica[maska] *= (0.35 / odleglosc[maska])[..., np.newaxis]
-                self.wagi[maska] = srodek + roznica[maska]
 
-        elif self.typ_ksztaltu == "square":
-            self.wagi = np.clip(self.wagi, 0.15, 0.85)
+        h_sieci, w_sieci, _ = self.wagi.shape
+        for i in range(h_sieci):
+            for j in range(w_sieci):
+                v = self.wagi[i, j]
+                
+                if self.typ_ksztaltu == "circle":
+                    srodek = np.array([0.5, 0.5])
+                    roznica = v - srodek
+                    odl = np.linalg.norm(roznica)
+                    if odl > 0.35: # Promień konturu
+                        self.wagi[i, j] = srodek + roznica * (0.35 / odl)
+                
+                elif self.typ_ksztaltu == "square":
 
-        elif self.typ_ksztaltu == "star":
-            self.wagi = np.clip(self.wagi, 0.1, 0.9)
+                    self.wagi[i, j] = np.clip(v, 0.15, 0.85)
+                    
+                elif self.typ_ksztaltu == "triangle":
+
+                    v[0] = np.clip(v[0], 0.15, 0.85)
+                    v[1] = np.clip(v[1], 0.15, 0.85)
 
     def krok_treningowy(self, dane):
+        if len(dane) == 0: return
         p = dane[np.random.randint(len(dane))]
         
-        odleglosci = np.linalg.norm(self.wagi - p, axis=2)
-        bx, by = np.unravel_index(np.argmin(odleglosci), odleglosci.shape)
+
+        dists = np.sum((self.wagi - p)**2, axis=2)
+        idxW, idxK = np.unravel_index(np.argmin(dists), dists.shape)
         
-        odleglosc_kw = (self.x - bx)**2 + (self.y - by)**2
-        wplyw = np.exp(-odleglosc_kw / (2 * self.sigma**2))
+
+        SS = int(self.S)
+        for i in range(idxW - SS, idxW + SS + 1):
+            if 0 <= i < self.wielkosc_y:
+                for j in range(idxK - SS, idxK + SS + 1):
+                    if 0 <= j < self.wielkosc_x:
+                        d_siatki = np.sqrt((idxW - i)**2 + (idxK - j)**2)
+                        if d_siatki < self.S:
+                            wspolczynnik = self.eta * self.fS(d_siatki)
+                            self.wagi[i, j] += wspolczynnik * (p - self.wagi[i, j])
         
-        self.wagi += self.lr * wplyw[..., np.newaxis] * (p - self.wagi)
-        
+
         self.ogranicz_wagi()
         
-        self.lr *= 0.9995
-        self.sigma *= 0.9995
 
-def pobierz_dane_kola(n=2000):
+        self.eta *= self.epsEta
+        self.S *= self.epsS
+
+
+def pobierz_dane_kola(n=2500):
     r = np.sqrt(np.random.rand(n)) * 0.35
     a = np.random.rand(n) * 2 * np.pi
     return np.column_stack((0.5 + r * np.cos(a), 0.5 + r * np.sin(a)))
 
-def pobierz_dane_kwadratu(n=2000):
+def pobierz_dane_kwadratu(n=2500):
     return np.random.rand(n, 2) * 0.7 + 0.15
 
-def pobierz_dane_gwiazdy(n=3000):
+def pobierz_dane_trojkata(n=2500):
+
+    A = np.array([0.5, 0.15])
+    B = np.array([0.15, 0.85])
+    C = np.array([0.85, 0.85])
+    
     punkty = []
     while len(punkty) < n:
-        p = np.random.rand(2)
-        dx, dy = p[0] - 0.5, p[1] - 0.5
-        r = np.sqrt(dx**2 + dy**2)
-        kat = np.arctan2(dy, dx)
-        r_gwiazdy = 0.15 + 0.20 * (np.abs(np.cos(kat * 2.5)))**2 
-        if r < r_gwiazdy:
-            punkty.append(p)
+
+        r1, r2 = np.random.rand(2)
+        sqrt_r1 = np.sqrt(r1)
+        
+
+        P = (1 - sqrt_r1) * A + (sqrt_r1 * (1 - r2)) * B + (sqrt_r1 * r2) * C
+        punkty.append(P)
+        
     return np.array(punkty)
 
+
 class Aplikacja:
-    def __init__(self, window):
-        self.window = window
-        self.window.title("SOM Ograniczone Wypełnianie Kształtów")
+    def __init__(self, korzen):
+        self.korzen = korzen
+        self.korzen.title("SOM Java Logic: Circle, Square, Triangle")
         
-        panel = tk.Frame(window)
+        panel = tk.Frame(korzen)
         panel.pack(pady=10)
         
-        tk.Label(panel, text="Kroki:").pack(side=tk.LEFT)
-        self.pole_krokow = tk.Entry(panel, width=8)
-        self.pole_krokow.insert(0, "15000")
+        tk.Label(panel, text="Kroki (Epochs):").pack(side=tk.LEFT)
+        self.pole_krokow = tk.Entry(panel, width=10)
+        self.pole_krokow.insert(0, "25000")
         self.pole_krokow.pack(side=tk.LEFT, padx=5)
         
-        self.przycisk_start = tk.Button(panel, text="START", command=self.start, bg="#28a745", fg="white", width=10)
-        self.przycisk_start.pack(side=tk.LEFT, padx=5)
-        
-        tk.Button(panel, text="RESET", command=self.resetuj, width=10).pack(side=tk.LEFT)
+        self.btn_start = tk.Button(panel, text="START", command=self.start, bg="#28a745", fg="white", font=("Arial", 10, "bold"))
+        self.btn_start.pack(side=tk.LEFT, padx=10)
+        tk.Button(panel, text="RESET", command=self.resetuj).pack(side=tk.LEFT)
 
-        self.ramka = tk.Frame(window)
+        self.ramka = tk.Frame(korzen)
         self.ramka.pack(padx=10, pady=10)
 
         self.plotna = []
-        self.nazwy_ksztaltow = ["circle", "square", "star"]
-        wyswietlane_nazwy = ["Koło", "Kwadrat", "Gwiazda"]
+
+        self.typy = ["circle", "square", "triangle"]
+        etykiety = ["Koło", "Kwadrat", "Trójkąt"]
         
         for i in range(3):
-            f = tk.Frame(self.ramka)
-            f.pack(side=tk.LEFT, padx=5)
-            tk.Label(f, text=wyswietlane_nazwy[i], font=("Arial", 10, "bold")).pack()
-            c = tk.Canvas(f, width=300, height=300, bg="white", highlightthickness=1, relief="sunken")
+            f = tk.Frame(self.ramka, padx=5)
+            f.pack(side=tk.LEFT)
+            tk.Label(f, text=etykiety[i], font=("Arial", 10, "bold")).pack(pady=5)
+            c = tk.Canvas(f, width=350, height=350, bg="white", borderwidth=1, relief="solid")
             c.pack()
             self.plotna.append(c)
 
@@ -104,64 +143,82 @@ class Aplikacja:
 
     def resetuj(self):
         self.dziala = False
-        self.sieci_som = [SOM2D(8, self.nazwy_ksztaltow[i]) for i in range(3)]
-        self.dane = [pobierz_dane_kola(), pobierz_dane_kwadratu(), pobierz_dane_gwiazdy()]
+        self.sieci = [SOM2D(8, 8, self.typy[i]) for i in range(3)]
+
+        self.dane = [pobierz_dane_kola(), pobierz_dane_kwadratu(), pobierz_dane_trojkata()]
         self.krok = 0
         self.rysuj()
 
-    def rysuj_ksztalty(self, c, idx):
-        srodek = 150
-        skala = 300
-        if idx == 0:
-            c.create_oval(45, 45, 255, 255, outline="#ddd", width=2)
-        elif idx == 1:
-            c.create_rectangle(45, 45, 255, 255, outline="#ddd", width=2)
-        elif idx == 2:
-            punkty = []
-            for k in range(10):
-                a = k * np.pi / 5 - np.pi/2
-                r = (0.35 if k % 2 == 0 else 0.15) * skala
-                punkty.extend([srodek + r * np.cos(a), srodek + r * np.sin(a)])
-            c.create_polygon(punkty, outline="#ddd", fill="", width=2)
+    def rysuj_kontury(self, c, idx):
+        cntr, sz = 175, 350 
+        
+        if idx == 0: 
+            r = 0.35 * sz
+            c.create_oval(cntr - r, cntr - r, cntr + r, cntr + r, outline="#eee", width=3)
+        elif idx == 1: 
+            r = 0.35 * sz
+            c.create_rectangle(cntr - r, cntr - r, cntr + r, cntr + r, outline="#eee", width=3)
+        elif idx == 2: 
+            punkty_trojkata = [
+                0.5 * sz, 0.15 * sz, # A
+                0.15 * sz, 0.85 * sz, # B
+                0.85 * sz, 0.85 * sz  # C
+            ]
+            c.create_polygon(punkty_trojkata, outline="#eee", fill="", width=3)
 
     def rysuj(self):
         for idx, c in enumerate(self.plotna):
             c.delete("all")
-            self.rysuj_ksztalty(c, idx)
-            wagi = self.sieci_som[idx].wagi
-            s = self.sieci_som[idx].wielkosc
-            for i in range(s):
-                for j in range(s):
-                    x, y = wagi[i,j] * 300
-                    if i < s - 1:
-                        x2, y2 = wagi[i+1, j] * 300
+            
+
+            self.rysuj_kontury(c, idx)
+            
+            wagi = self.sieci[idx].wagi
+            h, w, _ = wagi.shape
+            scale = 350
+            
+
+            for i in range(h):
+                for j in range(w):
+                    x, y = wagi[i, j] * scale
+                    if i + 1 < h:
+                        x2, y2 = wagi[i+1, j] * scale
                         c.create_line(x, y, x2, y2, fill="#007bff", width=1)
-                    if j < s - 1:
-                        x2, y2 = wagi[i, j+1] * 300
+                    if j + 1 < w:
+                        x2, y2 = wagi[i, j+1] * scale
                         c.create_line(x, y, x2, y2, fill="#007bff", width=1)
-            for i in range(s):
-                for j in range(s):
-                    x, y = wagi[i,j] * 300
+            
+  
+            for i in range(h):
+                for j in range(w):
+                    x, y = wagi[i, j] * scale
                     c.create_oval(x-3, y-3, x+3, y+3, fill="#dc3545", outline="white")
 
     def start(self):
         if not self.dziala:
-            self.maks_krokow = int(self.pole_krokow.get())
-            self.dziala = True
-            self.petla()
+            try:
+                self.maks_krokow = int(self.pole_krokow.get())
+                self.dziala = True
+                self.btn_start.config(text="RUNNING...", bg="#ffc107", state="disabled")
+                self.petla()
+            except ValueError: pass
 
     def petla(self):
         if not self.dziala or self.krok >= self.maks_krokow:
             self.dziala = False
+            self.btn_start.config(text="START", bg="#28a745", state="normal")
             return
-        for _ in range(100):
+        
+
+        for _ in range(150): 
             for i in range(3):
-                self.sieci_som[i].krok_treningowy(self.dane[i])
+                self.sieci[i].krok_treningowy(self.dane[i])
             self.krok += 1
+            
         self.rysuj()
-        self.window.after(10, self.petla)
+        self.korzen.after(1, self.petla)
 
 if __name__ == "__main__":
-    window = tk.Tk()
-    aplikacja = Aplikacja(window)
-    window.mainloop()
+    root = tk.Tk()
+    app = Aplikacja(root)
+    root.mainloop()
