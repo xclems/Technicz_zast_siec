@@ -169,7 +169,6 @@ class App:
     def draw_ui_shapes(self):
         self.draw_outline(self.canvas_left, self.left_shape.get())
         self.draw_outline(self.canvas_right, self.right_shape.get())
-        # Генерируем данные для обучения в фоне
         self.left_data = SHAPE_DATA_FNS[self.left_shape.get()](2000)
         self.right_data = SHAPE_DATA_FNS[self.right_shape.get()](2000)
 
