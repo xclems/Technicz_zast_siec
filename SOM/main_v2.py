@@ -62,11 +62,10 @@ class SOM:
         self.mode = mode
         self.w = w
         self.h = h
-        
+        self.n = w * h
         if mode == "grid":
             self.weights = np.random.rand(self.h, self.w, 2)
         else:
-            self.n = w * h
             self.weights = np.random.rand(self.n, 2)
             
         self.reset_learning_params()
@@ -143,8 +142,8 @@ class App:
         self.entry_h.grid(row=0, column=3, padx=5)
 
         self.mode = tk.StringVar(value="grid")
-        tk.Radiobutton(params_frame, text="Siatka", variable=self.mode, value="grid").grid(row=0, column=4, padx=10)
-        tk.Radiobutton(params_frame, text="Łańcuch", variable=self.mode, value="chain").grid(row=0, column=5)
+        tk.Radiobutton(params_frame, text="Siatka", variable=self.mode, value="grid", command=self.on_mode_change).grid(row=0, column=4, padx=10)
+        tk.Radiobutton(params_frame, text="Łańcuch", variable=self.mode, value="chain", command=self.on_mode_change).grid(row=0, column=5)
         
         self.closed = tk.BooleanVar()
         tk.Checkbutton(params_frame, text="Zamknięty łańcuch", variable=self.closed).grid(row=0, column=6)
@@ -251,6 +250,23 @@ class App:
         for p in self.som.weights.reshape(-1,2):
             x, y = p*s
             c.create_oval(x-2, y-2, x+2, y+2, fill="red", outline="maroon")
+
+    def on_mode_change(self):
+        new_mode = self.mode.get()
+        if self.som.mode == new_mode:
+            return 
+        self.som.mode = new_mode
+        if new_mode == "grid":
+            self.som.weights = self.som.weights.reshape((self.som.h, self.som.w, 2))
+        else:
+            self.som.weights = self.som.weights.reshape((self.som.n, 2))
+        if self.has_started:
+            self.som.wake_up_for_morph()
+            if not self.running:
+                self.running = True
+                self.loop()
+        else:
+            self.draw_som()
 
     # === PĘTLA ANIMACJI ===
 
