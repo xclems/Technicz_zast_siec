@@ -3,45 +3,81 @@ from tkinter import ttk
 import numpy as np
 
 def circle_pts(n):
-    r = np.sqrt(np.random.rand(n)) * 0.35
-    a = np.random.rand(n) * 2 * np.pi
-    return np.column_stack((0.5 + r * np.cos(a), 0.5 + r * np.sin(a)))
+    a = np.linspace(0, 2*np.pi, n)
+    return np.column_stack((0.5 + 0.35*np.cos(a),
+                            0.5 + 0.35*np.sin(a)))
 
 def square_pts(n):
-    return np.random.rand(n, 2) * 0.7 + 0.15
+    pts = []
+    for i in range(n):
+        t = i / n
+        if t < 0.25:
+            pts.append([0.15 + t*4*0.7, 0.15])
+        elif t < 0.5:
+            pts.append([0.85, 0.15 + (t-0.25)*4*0.7])
+        elif t < 0.75:
+            pts.append([0.85 - (t-0.5)*4*0.7, 0.85])
+        else:
+            pts.append([0.15, 0.85 - (t-0.75)*4*0.7])
+    return np.array(pts)
 
 def triangle_pts(n):
-    A, B, C = np.array([0.5, 0.15]), np.array([0.15, 0.85]), np.array([0.85, 0.85])
+    A = np.array([0.5, 0.15])
+    B = np.array([0.15, 0.85])
+    C = np.array([0.85, 0.85])
+
     pts = []
-    for _ in range(n):
-        r1, r2 = np.random.rand(2)
-        s = np.sqrt(r1)
-        pts.append((1 - s) * A + s * (1 - r2) * B + s * r2 * C)
+    for i in range(n):
+        t = i / n
+        if t < 1/3:
+            pts.append(A + (B-A)*(t*3))
+        elif t < 2/3:
+            pts.append(B + (C-B)*((t-1/3)*3))
+        else:
+            pts.append(C + (A-C)*((t-2/3)*3))
     return np.array(pts)
 
 def diamond_pts(n):
+    # Вершины ромба (верх, право, низ, лево)
+    A = np.array([0.5, 0.15])
+    B = np.array([0.85, 0.5])
+    C = np.array([0.5, 0.85])
+    D = np.array([0.15, 0.5])
+
     pts = []
-    while len(pts) < n:
-        x, y = np.random.rand(2)
-        if abs(x - 0.5) + abs(y - 0.5) < 0.35:
-            pts.append([x, y])
+    for i in range(n):
+        t = i / n
+        if t < 0.25:
+            pts.append(A + (B - A) * (t * 4))          # От верхней к правой
+        elif t < 0.5:
+            pts.append(B + (C - B) * ((t - 0.25) * 4)) # От правой к нижней
+        elif t < 0.75:
+            pts.append(C + (D - C) * ((t - 0.5) * 4))  # От нижней к левой
+        else:
+            pts.append(D + (A - D) * ((t - 0.75) * 4)) # От левой к верхней
     return np.array(pts)
 
 def trapezoid_pts(n):
-    y = np.random.rand(n)
-    x_min, x_max = 0.2 + 0.2 * y, 0.8 - 0.2 * y
-    x = x_min + (x_max - x_min) * np.random.rand(n)
-    y = 0.15 + y * 0.7
-    return np.column_stack((x, y))
+    # Вершины трапеции
+    A = np.array([0.2, 0.15]) # Верхняя левая
+    B = np.array([0.8, 0.15]) # Верхняя правая
+    C = np.array([0.6, 0.85]) # Нижняя правая
+    D = np.array([0.4, 0.85]) # Нижняя левая
 
-def star_pts(n):
     pts = []
-    while len(pts) < n:
-        a = np.random.rand() * 2 * np.pi
-        r_max = 0.15 + 0.2 * (np.abs(np.sin(2.5 * a)))
-        r = np.sqrt(np.random.rand()) * r_max
-        pts.append([0.5 + r * np.cos(a), 0.5 + r * np.sin(a)])
+    for i in range(n):
+        t = i / n
+        if t < 0.25:
+            pts.append(A + (B - A) * (t * 4))          # Верхняя грань
+        elif t < 0.5:
+            pts.append(B + (C - B) * ((t - 0.25) * 4)) # Правая грань
+        elif t < 0.75:
+            pts.append(C + (D - C) * ((t - 0.5) * 4))  # Нижняя грань
+        else:
+            pts.append(D + (A - D) * ((t - 0.75) * 4)) # Левая грань
     return np.array(pts)
+
+
 
 SHAPE_DATA_FNS = {
     "Koło": circle_pts,
@@ -49,11 +85,9 @@ SHAPE_DATA_FNS = {
     "Trójkąt": triangle_pts,
     "Romb": diamond_pts,
     "Trapez": trapezoid_pts,
-    "Gwiazda": star_pts
 }
 
 # SOM
-
 class SOM:
     def __init__(self, w=10, h=10, mode="grid"):
         self.mode = mode
@@ -73,27 +107,83 @@ class SOM:
         self.eta = 0.03
         self.S = max(self.w, self.h) / 4 if self.mode == "grid" else self.n / 4
 
+    def apply_chain_elasticity(self, w):
+        """
+        Имитирует физическую упругость нити. 
+        Плавно стягивает узлы к центру между их соседями, выравнивая расстояние
+        и предотвращая любые скручивания и хаотичные переплетения.
+        """
+        new_w = w.copy()
+        N = len(w)
+        alpha = 0.08  # Коэффициент упругости (натяжения)
+
+        for i in range(N):
+            if hasattr(self, "closed") and self.closed:
+                # В замкнутом режиме 0-й и последний узлы являются полноценными соседями
+                left = (i - 1) % N
+                right = (i + 1) % N
+                avg = (w[left] + w[right]) / 2.0
+                new_w[i] += alpha * (avg - w[i])
+            else:
+                if i == 0:
+                    # Мягко удерживаем концы, чтобы они не отрывались от формы
+                    new_w[i] += alpha * 0.5 * (w[1] - w[0])
+                elif i == N - 1:
+                    new_w[i] += alpha * 0.5 * (w[N-2] - w[N-1])
+                else:
+                    avg = (w[i-1] + w[i+1]) / 2.0
+                    new_w[i] += alpha * (avg - w[i])
+                    
+        return new_w
+
     def step(self, p):
+        self.last_input = p
         if self.mode == "grid":
             d = np.sum((self.weights - p)**2, axis=2)
             i, j = np.unravel_index(np.argmin(d), d.shape)
+
             for y in range(self.h):
                 for x in range(self.w):
-                    dist = np.sqrt((i - y)**2 + (j - x)**2)
-                    if dist < self.S:
-                        self.weights[y, x] += self.eta * (p - self.weights[y, x])
+                    dist2 = (i - y)**2 + (j - x)**2
+                    h = np.exp(-dist2 / (2 * (self.S**2)))
+                    self.weights[y, x] += self.eta * h * (p - self.weights[y, x])
+
+            self.weights = self.smooth_grid(self.weights)
+
         else:
             d = np.sum((self.weights - p)**2, axis=1)
             idx = np.argmin(d)
+
             for i in range(len(self.weights)):
                 dist = abs(i - idx)
-                if dist < self.S:
-                    self.weights[i] += self.eta * (p - self.weights[i])
-        self.eta *= 0.9998
-        self.S *= 0.9998
+
+                if hasattr(self, "closed") and self.closed:
+                    # Расстояние по кольцу (кратчайшее)
+                    dist = min(dist, len(self.weights) - dist)
+
+                h = np.exp(-(dist**2)/(2*(self.S**2)))
+                self.weights[i] += self.eta * h * (p - self.weights[i])
+
+            # 🔥 Единая функция упругости, обеспечивающая ровные расстояния и форму
+            self.weights = self.apply_chain_elasticity(self.weights)
+
+        self.weights = np.clip(self.weights, 0.05, 0.95)
+
+        self.eta *= 0.9995
+        self.S *= 0.9995
+    
+    def smooth_grid(self, w):
+        new_w = w.copy()
+        for i in range(1, self.h-1):
+            for j in range(1, self.w-1):
+                new_w[i, j] = (
+                    0.5 * w[i, j] +
+                    0.125 * (w[i-1, j] + w[i+1, j] + w[i, j-1] + w[i, j+1])
+                )
+        return new_w
+
 
 # GUI
-
 class App:
     def __init__(self, root):
         self.root = root
@@ -171,6 +261,7 @@ class App:
         self.som = SOM(w, h, self.mode_var.get())
         self.start_btn.config(state="normal", text="START")
         self.stop_btn.config(state="disabled")
+        self.som.closed = self.closed.get()
         self.draw_ui_shapes()
         self.draw_som()
 
@@ -228,10 +319,15 @@ class App:
         if not self.running: return
         data = self.left_data if self.current_phase == "left" else self.right_data
         self.status_label.config(text=f"Status: {self.current_phase.upper()}")
+        
+        # Обновляем состояние 'closed' динамически на случай если чекбокс изменился
+        self.som.closed = self.closed.get()
+        
         for _ in range(30):
             p = data[np.random.randint(len(data))]
             self.som.step(p)
         self.draw_som()
+        
         if self.som.eta < 0.008:
             self.current_phase = "right" if self.current_phase == "left" else "left"
             self.som.wake_up_for_morph()
@@ -241,6 +337,7 @@ class App:
 
     def start_morph(self):
         self.running = True
+        self.som.closed = self.closed.get()
         self.start_btn.config(state="disabled", text="RUNNING")
         self.stop_btn.config(state="normal", text="STOP")
         self.loop()
