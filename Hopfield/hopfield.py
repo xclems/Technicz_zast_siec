@@ -23,21 +23,16 @@ class SiecHopfielda:
         np.fill_diagonal(self.W, 0)
         self.nauczona = True
 
-    def przypomnij(self, wzorzec, kroki=50):
+    def przypomnij(self, wzorzec, kroki=40):
         x = wzorzec.copy().astype(float)
         n = self.rozmiar
-        bias = -0.1
-
         for _ in range(kroki):
-            zmiana = False
             kolejnosc = np.random.permutation(n)
+            stary_x = x.copy()
             for i in kolejnosc:
-                s = np.dot(self.W[i], x) + bias
-                nowy = 1.0 if s >= 0 else -1.0
-                if nowy != x[i]:
-                    x[i] = nowy
-                    zmiana = True
-            if not zmiana:
+                s = np.dot(self.W[i], x) + (random.random() * 0.02 - 0.01)
+                x[i] = 1.0 if s >= 0 else -1.0
+            if np.array_equal(x, stary_x):
                 break
         return x
 
