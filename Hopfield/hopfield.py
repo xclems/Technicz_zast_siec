@@ -300,9 +300,15 @@ class AplikacjaHopfield:
         if len(self.wzorce) >= MAKS_WZORCOW:
             self._ustaw_status(f"Maksimum {MAKS_WZORCOW} wzorce!", KOL_CZERWONY)
             return
-        self.wzorce.append(self.siatka.flatten().copy())
+        wzorzec = self.siatka.flatten().copy()
+        if np.all(wzorzec == -1.0):
+            self._ustaw_status("Siatka jest pusta - nie można zapisać!", KOL_CZERWONY)
+            return
+        self.wzorce.append(wzorzec)
+        self.siatka = np.full((ROZMIAR_SIATKI, ROZMIAR_SIATKI), -1.0)
+        self._odrysuj_siatke()
         self._ustaw_status(
-            f"Wzorzec {len(self.wzorce)} zapisany. Siatka bez zmian.", KOL_ZIELONY
+            f"Wzorzec {len(self.wzorce)} zapisany. Siatka wyczyszczona.", KOL_ZIELONY
         )
         self._aktualizuj_licznik()
         self._aktualizuj_miniatury()
