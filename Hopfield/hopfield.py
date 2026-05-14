@@ -4,6 +4,56 @@ from tkinter import messagebox
 
 import numpy as np
 
+# =========================
+# Predefiniowane wzorce liter (10×10)
+# =========================
+# 1.0 = piksel aktywny (biały), -1.0 = nieaktywny (czarny)
+
+WZORZEC_P = np.array(
+    [
+        [-1, -1, 1, 1, 1, -1, -1, -1, -1, -1],
+        [-1, 1, -1, -1, 1, -1, -1, -1, -1, -1],
+        [-1, 1, -1, -1, 1, -1, -1, -1, -1, -1],
+        [-1, -1, 1, 1, 1, -1, -1, -1, -1, -1],
+        [-1, -1, -1, -1, 1, -1, -1, -1, -1, -1],
+        [-1, -1, -1, -1, 1, -1, -1, -1, -1, -1],
+        [-1, -1, -1, -1, 1, -1, -1, -1, -1, -1],
+        [-1, -1, -1, -1, 1, -1, -1, -1, -1, -1],
+        [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+        [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+    ]
+)
+
+WZORZEC_R = np.array(
+    [
+        [-1, -1, -1, -1, -1, 1, 1, 1, -1, -1],
+        [-1, -1, -1, -1, 1, -1, -1, 1, -1, -1],
+        [-1, -1, -1, -1, 1, -1, -1, 1, -1, -1],
+        [-1, -1, -1, -1, -1, 1, 1, -1, -1, -1],
+        [-1, -1, -1, -1, -1, -1, 1, -1, -1, -1],
+        [-1, -1, -1, -1, -1, 1, 1, -1, -1, -1],
+        [-1, -1, -1, 1, -1, 1, -1, -1, -1, -1],
+        [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+        [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+        [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+    ]
+)
+
+WZORZEC_O = np.array(
+    [
+        [-1, -1, -1, -1, -1, 1, 1, 1, -1, -1],
+        [-1, -1, -1, -1, 1, -1, -1, 1, -1, -1],
+        [-1, -1, -1, 1, -1, -1, -1, 1, -1, -1],
+        [-1, -1, -1, 1, -1, -1, -1, 1, -1, -1],
+        [-1, -1, -1, 1, -1, -1, -1, 1, -1, -1],
+        [-1, -1, -1, -1, 1, -1, -1, 1, -1, -1],
+        [-1, -1, -1, -1, -1, 1, 1, 1, -1, -1],
+        [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+        [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+        [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+    ]
+)
+
 
 # =========================
 # Sieć Hopfielda
@@ -16,10 +66,11 @@ class SiecHopfielda:
 
     def naucz(self, wzorce):
         n = self.rozmiar
-        self.W = np.zeros((n, n))
-        for w in wzorce:
-            p = w.reshape(-1, 1)
-            self.W += (p @ p.T) / n
+        p = len(wzorce)
+        M = np.array(wzorce)
+        G = M @ M.T
+        G_inv = np.linalg.inv(G)
+        self.W = M.T @ G_inv @ M
         np.fill_diagonal(self.W, 0)
         self.nauczona = True
 
@@ -72,6 +123,7 @@ class AplikacjaHopfield:
 
         self._zbuduj_ui()
         self._odrysuj_siatke()
+        self._zaladuj_wzorce_domyslne()
 
     # ------------------------------------------------------------------
     # Budowa interfejsu
@@ -175,17 +227,13 @@ class AplikacjaHopfield:
             "  LPM  — rysuj\n"
             "  PPM  — gumka\n\n"
             "KROKI:\n"
-            "  1. Narysuj wzorzec\n"
-            "  2. Zapisz (maks. 3)\n"
-            "  3. Trenuj sieć\n"
-            "  4. Narysuj od nowa\n"
+            "  1. Trenuj sieć\n"
+            "  2. Narysuj literę\n"
             "     lub dodaj szum\n"
-            "  5. Rozpoznaj\n\n"
-            "UWAGA:\n"
-            "  Wzorzec zostaje\n"
-            "  na siatce po\n"
-            "  zapisaniu — możesz\n"
-            "  dalej go edytować."
+            "  3. Rozpoznaj\n\n"
+            "WZORCE:\n"
+            "  P, R, O załadowane\n"
+            "  przy starcie."
         )
         tk.Label(
             prawy,
@@ -340,6 +388,11 @@ class AplikacjaHopfield:
             self._ustaw_status("Najpierw wytrenuj sieć!", KOL_CZERWONY)
             return
         wejscie = self.siatka.flatten().copy()
+        if np.all(wejscie == -1.0):
+            self._ustaw_status(
+                "Panie Hermanowiczu przoszę coś wprowadzić", KOL_CZERWONY
+            )
+            return
         wynik = self.siec.przypomnij(wejscie)
         self.siatka = wynik.reshape((ROZMIAR_SIATKI, ROZMIAR_SIATKI))
         self._odrysuj_siatke()
@@ -357,6 +410,15 @@ class AplikacjaHopfield:
         self._aktualizuj_miniatury()
         self._aktualizuj_etk_siec()
         self._ustaw_status("Wszystkie wzorce usunięte.", KOL_MUTNY)
+
+    def _zaladuj_wzorce_domyslne(self):
+        for wzorzec in [WZORZEC_P, WZORZEC_R, WZORZEC_O]:
+            self.wzorce.append(wzorzec.flatten().copy())
+        self._aktualizuj_licznik()
+        self._aktualizuj_miniatury()
+        self._ustaw_status(
+            "Załadowano wzorce: P, R, O. Kliknij 'Trenuj sieć'.", KOL_AKCENT
+        )
 
     # ------------------------------------------------------------------
     # Rysowanie siatki
