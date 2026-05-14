@@ -157,7 +157,7 @@ class AplikacjaHopfield:
             highlightbackground=KOL_LINIA,
             cursor="crosshair",
         )
-        self.kanwa.pack()
+        self.kanwa.pack(fill=tk.BOTH, expand=True)
 
         # prostokąty siatki
         self.komorki = []
@@ -302,6 +302,7 @@ class AplikacjaHopfield:
 
         self.ramka_miniatur = tk.Frame(prawy, bg=KOL_PANEL)
         self.ramka_miniatur.pack(anchor="w")
+        self.root.bind("<Configure>", self._resize)
 
     # ------------------------------------------------------------------
     # Tworzenie przycisków
@@ -490,6 +491,33 @@ class AplikacjaHopfield:
         self._ustaw_status(
             "Załadowano wzorce: P, R, O. Kliknij 'Trenuj sieć'.", KOL_AKCENT
         )
+    
+    def _resize(self, event):
+
+        # размер canvas
+        nowa_szer = self.kanwa.winfo_width()
+        nowa_wys = self.kanwa.winfo_height()
+
+        rozmiar = min(nowa_szer, nowa_wys)
+
+        global ROZMIAR_KOMORKI
+        ROZMIAR_KOMORKI = max(10, rozmiar // ROZMIAR_SIATKI)
+
+        for i in range(ROZMIAR_SIATKI):
+            for j in range(ROZMIAR_SIATKI):
+
+                x1 = j * ROZMIAR_KOMORKI + 1
+                y1 = i * ROZMIAR_KOMORKI + 1
+
+                x2 = x1 + ROZMIAR_KOMORKI - 2
+                y2 = y1 + ROZMIAR_KOMORKI - 2
+
+                self.kanwa.coords(
+                    self.komorki[i][j],
+                    x1, y1, x2, y2
+                )
+
+        self._odrysuj_siatke()
 
     # ------------------------------------------------------------------
     # Rysowanie siatki
