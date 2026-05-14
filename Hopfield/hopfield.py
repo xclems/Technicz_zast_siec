@@ -1,6 +1,7 @@
 import random
 import tkinter as tk
 from tkinter import messagebox
+import time
 
 import numpy as np
 
@@ -11,46 +12,46 @@ import numpy as np
 
 WZORZEC_P = np.array(
     [
-        [-1, -1, 1, 1, 1, -1, -1, -1, -1, -1],
-        [-1, 1, -1, -1, 1, -1, -1, -1, -1, -1],
-        [-1, 1, -1, -1, 1, -1, -1, -1, -1, -1],
-        [-1, -1, 1, 1, 1, -1, -1, -1, -1, -1],
-        [-1, -1, -1, -1, 1, -1, -1, -1, -1, -1],
-        [-1, -1, -1, -1, 1, -1, -1, -1, -1, -1],
-        [-1, -1, -1, -1, 1, -1, -1, -1, -1, -1],
-        [-1, -1, -1, -1, 1, -1, -1, -1, -1, -1],
-        [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
-        [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+       [-1, -1, -1, 1, 1, 1, -1, -1, -1, -1],
+    [-1, -1, -1, 1, -1, -1, 1, -1, -1, -1],
+    [-1, -1, -1, 1, -1, -1, 1, -1, -1, -1],
+    [-1, -1, -1, 1, 1, 1, -1, -1, -1, -1],
+    [-1, -1, -1, 1, -1, -1, -1, -1, -1, -1],
+    [-1, -1, -1, 1, -1, -1, -1, -1, -1, -1],
+    [-1, -1, -1, 1, -1, -1, -1, -1, -1, -1],
+    [-1, -1, -1, 1, -1, -1, -1, -1, -1, -1],
+    [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+    [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
     ]
 )
 
 WZORZEC_R = np.array(
     [
-        [-1, -1, -1, -1, -1, 1, 1, 1, -1, -1],
-        [-1, -1, -1, -1, 1, -1, -1, 1, -1, -1],
-        [-1, -1, -1, -1, 1, -1, -1, 1, -1, -1],
-        [-1, -1, -1, -1, -1, 1, 1, -1, -1, -1],
-        [-1, -1, -1, -1, -1, -1, 1, -1, -1, -1],
-        [-1, -1, -1, -1, -1, 1, 1, -1, -1, -1],
-        [-1, -1, -1, 1, -1, 1, -1, -1, -1, -1],
-        [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
-        [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
-        [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+        [-1, -1, -1, 1, 1, 1, -1, -1, -1, -1],
+    [-1, -1, -1, 1, -1, -1, 1, -1, -1, -1],
+    [-1, -1, -1, 1, -1, -1, 1, -1, -1, -1],
+    [-1, -1, -1, 1, 1, 1, -1, -1, -1, -1],
+    [-1, -1, -1, 1, -1, 1, -1, -1, -1, -1],
+    [-1, -1, -1, 1, -1, -1, 1, -1, -1, -1],
+    [-1, -1, -1, 1, -1, -1, -1, 1, -1, -1],
+    [-1, -1, -1, 1, -1, -1, -1, -1, 1, -1],
+    [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+    [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
     ]
 )
 
 WZORZEC_O = np.array(
     [
-        [-1, -1, -1, -1, -1, 1, 1, 1, -1, -1],
-        [-1, -1, -1, -1, 1, -1, -1, 1, -1, -1],
-        [-1, -1, -1, 1, -1, -1, -1, 1, -1, -1],
-        [-1, -1, -1, 1, -1, -1, -1, 1, -1, -1],
-        [-1, -1, -1, 1, -1, -1, -1, 1, -1, -1],
-        [-1, -1, -1, -1, 1, -1, -1, 1, -1, -1],
-        [-1, -1, -1, -1, -1, 1, 1, 1, -1, -1],
-        [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
-        [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
-        [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+        [-1, -1, -1, 1, 1, 1, -1, -1, -1, -1],
+    [-1, -1, 1, -1, -1, -1, 1, -1, -1, -1],
+    [-1, -1, 1, -1, -1, -1, 1, -1, -1, -1],
+    [-1, -1, 1, -1, -1, -1, 1, -1, -1, -1],
+    [-1, -1, 1, -1, -1, -1, 1, -1, -1, -1],
+    [-1, -1, 1, -1, -1, -1, 1, -1, -1, -1],
+    [-1, -1, -1, 1, 1, 1, -1, -1, -1, -1],
+    [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+    [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+    [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
     ]
 )
 
@@ -197,9 +198,35 @@ class AplikacjaHopfield:
         self.btn_trenuj = self._przycisk(ramka_btn, "Trenuj sieć", self._trenuj)
         self.btn_szum = self._przycisk(ramka_btn, "Dodaj szum (20%)", self._dodaj_szum)
         self.btn_rozpoznaj = self._przycisk(ramka_btn, "Rozpoznaj", self._rozpoznaj)
-        self.btn_wyczysc = self._przycisk(ramka_btn, "Wyczyść siatkę", self._wyczysc)
-        self.btn_reset = self._przycisk(
-            ramka_btn, "Resetuj wzorce", self._resetuj_wzorce
+        self.btn_wyczysc = self._przycisk(
+            ramka_btn,
+            "Wyczyść siatkę",
+            self._wyczysc
+        )
+
+        self.btn_reset = tk.Button(
+            ramka_btn,
+            text="Resetuj wzorce",
+            command=self._resetuj_wzorce,
+            font=("Courier", 10),
+            bg="#7a1f1f",
+            fg="#ffffff",
+            activebackground="#a62d2d",
+            activeforeground="#ffffff",
+            relief="flat",
+            width=16,
+            pady=6,
+            cursor="hand2",
+        )
+
+        self.btn_reset.bind(
+            "<Enter>",
+            lambda e: self.btn_reset.config(bg="#a62d2d")
+        )
+
+        self.btn_reset.bind(
+            "<Leave>",
+            lambda e: self.btn_reset.config(bg="#7a1f1f")
         )
 
         self.btn_zapisz.grid(row=0, column=0, padx=4, pady=3)
@@ -387,15 +414,45 @@ class AplikacjaHopfield:
         if not self.siec.nauczona:
             self._ustaw_status("Najpierw wytrenuj sieć!", KOL_CZERWONY)
             return
+
         wejscie = self.siatka.flatten().copy()
+
         if np.all(wejscie == -1.0):
             self._ustaw_status(
-                "Panie Hermanowiczu przoszę coś wprowadzić", KOL_CZERWONY
+                "Panie Hermanowiczu proszę coś wprowadzić", KOL_CZERWONY
             )
             return
-        wynik = self.siec.przypomnij(wejscie)
-        self.siatka = wynik.reshape((ROZMIAR_SIATKI, ROZMIAR_SIATKI))
+
+        x = wejscie.astype(float)
+
+        for _ in range(40):
+            stary_x = x.copy()
+
+            kolejnosc = np.random.permutation(len(x))
+
+            for i in kolejnosc:
+
+                s = np.dot(self.siec.W[i], x) + (random.random() * 0.02 - 0.01)
+
+                nowy = 1.0 if s >= 0 else -1.0
+
+                x[i] = nowy
+
+                # обновление GUI
+                self.siatka = x.reshape((ROZMIAR_SIATKI, ROZMIAR_SIATKI))
+                self._odrysuj_siatke()
+
+                self.root.update()
+
+                # скорость анимации
+                time.sleep(0.03)
+
+            if np.array_equal(x, stary_x):
+                break
+
+        self.siatka = x.reshape((ROZMIAR_SIATKI, ROZMIAR_SIATKI))
         self._odrysuj_siatke()
+
         self._ustaw_status("Rozpoznawanie zakończone.", KOL_ZIELONY)
 
     def _wyczysc(self):
@@ -404,12 +461,26 @@ class AplikacjaHopfield:
         self._ustaw_status("Siatka wyczyszczona.", KOL_MUTNY)
 
     def _resetuj_wzorce(self):
+
+        potwierdzenie = messagebox.askyesno(
+            "Potwierdzenie",
+            "Czy na pewno chcesz usunąć wszystkie wzorce?"
+        )
+
+        if not potwierdzenie:
+            return
+
         self.wzorce.clear()
         self.siec.nauczona = False
+
         self._aktualizuj_licznik()
         self._aktualizuj_miniatury()
         self._aktualizuj_etk_siec()
-        self._ustaw_status("Wszystkie wzorce usunięte.", KOL_MUTNY)
+
+        self._ustaw_status(
+            "Wszystkie wzorce usunięte.",
+            KOL_CZERWONY
+        )
 
     def _zaladuj_wzorce_domyslne(self):
         for wzorzec in [WZORZEC_P, WZORZEC_R, WZORZEC_O]:
