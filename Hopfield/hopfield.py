@@ -52,9 +52,7 @@ WZORZEC_O = np.array(
 )
 
 
-# =========================
-# Sieć Hopfielda
-# =========================
+
 class SiecHopfielda:
     def __init__(self, rozmiar):
         self.rozmiar = rozmiar
@@ -174,13 +172,12 @@ class AplikacjaHopfield:
         self.kanwa.bind("<B3-Motion>", self._usun)
         self.kanwa.bind("<ButtonRelease-3>", self._stop_rysowania)
 
-        # etykieta statusu
         self.etk_status = tk.Label(
             lewa, text="Gotowy.", font=("Courier", 10), bg=KOL_TLO, fg=KOL_MUTNY
         )
         self.etk_status.pack(pady=(10, 8))
 
-        # przyciski
+
         ramka_btn = tk.Frame(lewa, bg=KOL_TLO)
         ramka_btn.pack()
 
@@ -357,9 +354,7 @@ class AplikacjaHopfield:
     def _stop_rysowania(self, event):
         self.rysowanie = False
 
-    # ------------------------------------------------------------------
-    # Akcje przycisków
-    # ------------------------------------------------------------------
+
     def _zapisz_wzorzec(self):
         if len(self.wzorce) >= MAKS_WZORCOW:
             self._ustaw_status(f"Maksimum {MAKS_WZORCOW} wzorce!", KOL_CZERWONY)
@@ -482,7 +477,7 @@ class AplikacjaHopfield:
     
     def _resize(self, event):
 
-        # размер canvas
+
         nowa_szer = self.kanwa.winfo_width()
         nowa_wys = self.kanwa.winfo_height()
 
