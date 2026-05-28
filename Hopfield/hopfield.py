@@ -5,10 +5,6 @@ import time
 
 import numpy as np
 
-# =========================
-# Predefiniowane wzorce liter (10×10)
-# =========================
-# 1.0 = piksel aktywny (biały), -1.0 = nieaktywny (czarny)
 
 WZORZEC_P = np.array(
     [
@@ -89,9 +85,7 @@ class SiecHopfielda:
         return x
 
 
-# =========================
-# Stałe wyglądu
-# =========================
+
 ROZMIAR_SIATKI = 10
 ROZMIAR_KOMORKI = 40
 MAKS_WZORCOW = 3
@@ -126,18 +120,16 @@ class AplikacjaHopfield:
         self._odrysuj_siatke()
         self._zaladuj_wzorce_domyslne()
 
-    # ------------------------------------------------------------------
-    # Budowa interfejsu
-    # ------------------------------------------------------------------
+
     def _zbuduj_ui(self):
         glowny = tk.Frame(self.root, bg=KOL_TLO)
         glowny.pack(fill=tk.BOTH, expand=True)
 
-        # ---- lewa część: siatka + przyciski ----
+
         lewa = tk.Frame(glowny, bg=KOL_TLO, padx=24, pady=24)
         lewa.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # tytuł
+
         tk.Label(
             lewa,
             text="SIEĆ HOPFIELDA",
@@ -146,7 +138,7 @@ class AplikacjaHopfield:
             fg=KOL_AKCENT,
         ).pack(anchor="w", pady=(0, 12))
 
-        # kanwa siatki
+
         wym = ROZMIAR_SIATKI * ROZMIAR_KOMORKI
         self.kanwa = tk.Canvas(
             lewa,
@@ -159,7 +151,7 @@ class AplikacjaHopfield:
         )
         self.kanwa.pack(fill=tk.BOTH, expand=True)
 
-        # prostokąty siatki
+
         self.komorki = []
         for i in range(ROZMIAR_SIATKI):
             rzad = []
@@ -197,7 +189,7 @@ class AplikacjaHopfield:
         )
         self.btn_trenuj = self._przycisk(ramka_btn, "Trenuj sieć", self._trenuj)
         self.btn_szum = self._przycisk(ramka_btn, "Dodaj szum (20%)", self._dodaj_szum)
-        self.btn_rozpoznaj = self._przycisk(ramka_btn, "Rozpoznaj", self._rozpoznaj)
+        self.btn_rozpoznaj = self._przycisk(ramka_btn, "Odtwórz", self._rozpoznaj)
         self.btn_wyczysc = self._przycisk(
             ramka_btn,
             "Wyczyść siatkę",
@@ -236,7 +228,7 @@ class AplikacjaHopfield:
         self.btn_wyczysc.grid(row=2, column=0, padx=4, pady=3)
         self.btn_reset.grid(row=2, column=1, padx=4, pady=3)
 
-        # ---- prawa część: panel boczny ----
+
         prawy = tk.Frame(glowny, bg=KOL_PANEL, width=220, padx=20, pady=24)
         prawy.pack(side=tk.RIGHT, fill=tk.Y)
         prawy.pack_propagate(False)
@@ -271,7 +263,7 @@ class AplikacjaHopfield:
             fg="#999999",
         ).pack(anchor="w")
 
-        # licznik wzorców
+
         self.etk_wzorce = tk.Label(
             prawy,
             text=f"Wzorce: 0 / {MAKS_WZORCOW}",
@@ -281,7 +273,7 @@ class AplikacjaHopfield:
         )
         self.etk_wzorce.pack(pady=(20, 6))
 
-        # etykieta stanu sieci
+
         self.etk_siec = tk.Label(
             prawy,
             text="Sieć: nienauczona",
@@ -291,7 +283,7 @@ class AplikacjaHopfield:
         )
         self.etk_siec.pack()
 
-        # miniatury wzorców
+
         tk.Label(
             prawy,
             text="Zapisane wzorce:",
@@ -304,9 +296,7 @@ class AplikacjaHopfield:
         self.ramka_miniatur.pack(anchor="w")
         self.root.bind("<Configure>", self._resize)
 
-    # ------------------------------------------------------------------
-    # Tworzenie przycisków
-    # ------------------------------------------------------------------
+
     def _przycisk(self, rodzic, tekst, komenda):
         btn = tk.Button(
             rodzic,
@@ -326,9 +316,7 @@ class AplikacjaHopfield:
         btn.bind("<Leave>", lambda e: btn.config(bg=KOL_BTN))
         return btn
 
-    # ------------------------------------------------------------------
-    # Obsługa myszy
-    # ------------------------------------------------------------------
+
     def _komorka_z_eventu(self, event):
         j = event.x // ROZMIAR_KOMORKI
         i = event.y // ROZMIAR_KOMORKI
@@ -439,13 +427,13 @@ class AplikacjaHopfield:
 
                 x[i] = nowy
 
-                # обновление GUI
+
                 self.siatka = x.reshape((ROZMIAR_SIATKI, ROZMIAR_SIATKI))
                 self._odrysuj_siatke()
 
                 self.root.update()
 
-                # скорость анимации
+
                 time.sleep(0.03)
 
             if np.array_equal(x, stary_x):
@@ -519,19 +507,16 @@ class AplikacjaHopfield:
 
         self._odrysuj_siatke()
 
-    # ------------------------------------------------------------------
-    # Rysowanie siatki
-    # ------------------------------------------------------------------
+
+
     def _odrysuj_siatke(self):
         for i in range(ROZMIAR_SIATKI):
             for j in range(ROZMIAR_SIATKI):
-                # Активний колір, якщо 1.0
+                
                 kol = KOL_AKTYWNA if self.siatka[i, j] == 1.0 else KOL_KOMORKA
                 self.kanwa.itemconfig(self.komorki[i][j], fill=kol)
 
-    # ------------------------------------------------------------------
-    # Aktualizacja UI
-    # ------------------------------------------------------------------
+
     def _ustaw_status(self, tekst, kolor=KOL_TEKST):
         self.etk_status.config(text=tekst, fg=kolor)
 
